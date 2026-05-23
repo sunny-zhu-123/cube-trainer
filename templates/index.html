@@ -634,7 +634,7 @@ function renderToday() {
   let html = `
     <div class="settings-bar">
       <div><strong>第${td.week}周 · ${td.wd}</strong> <span style="color:var(--text2);font-size:.8rem;">第${td.day}天/28天</span></div>
-      <div style="font-size:.8rem;color:var(--text2);">${state.startDate} 起</div>
+      <div style="font-size:.8rem;color:var(--text2);">${state.startDate} 起 <button onclick="resetTraining()" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:.75rem;margin-left:4px;text-decoration:underline;">重置</button></div>
     </div>
     <div class="progress-bar" style="margin-bottom:16px;"><div class="fill" style="width:${progressPct}%;"></div></div>`;
 
@@ -653,7 +653,7 @@ function renderToday() {
     html += `<div class="card" style="border:2px solid var(--primary);background:var(--primary-light);"><h3>🆕 今日新公式</h3>
       <div style="font-weight:700;margin-bottom:4px;">${nf.name} <span style="font-size:.75rem;color:var(--text2);">${nf.cat}</span></div>
       <div class="f-not" style="font-size:.95rem;margin-bottom:8px;">${nf.not}</div>
-      ${!isMastered(nf.id)?`<button class="btn btn-success btn-sm" onclick="markMastered('${nf.id}')">我会了！放入掌握库 ✅</button>`:'<span class="badge badge-mastered">✅ 已掌握</span>'}</div>`;
+      ${!isMastered(nf.id)?`<button class="btn btn-success btn-sm" onclick="markMastered('${nf.id}')">我会了！放入掌握库 ✅</button>`:`<span class="badge badge-mastered">✅ 已掌握</span> <button class="btn btn-sm btn-outline" style="margin-top:4px;" onclick="markMastered('${nf.id}')">取消</button>`}</div>`;
   }
 
   if (td.masteryCheck) {
@@ -708,7 +708,7 @@ function renderFormulas() {
     const masteredInCat = formulas.filter(f=>isMastered(f.id)).length;
     html += `<div class="card"><h3>📖 ${cat} <span style="font-size:.75rem;color:var(--text2);">${masteredInCat}/${formulas.length} 掌握</span></h3>`;
     for (const f of formulas) {
-      html += `<div class="formula-card"><div class="formula-info"><div class="f-name">${f.name}</div><div class="f-not">${f.not}</div></div><div class="f-status" style="text-align:right;">${statusBadge(isMastered(f.id)?'mastered':f.status)}${!isMastered(f.id)?`<br><button class="btn btn-success btn-sm" style="margin-top:4px;" onclick="markMastered('${f.id}')">我会了</button>`:''}</div></div>`;
+      html += `<div class="formula-card"><div class="formula-info"><div class="f-name">${f.name}</div><div class="f-not">${f.not}</div></div><div class="f-status" style="text-align:right;">${statusBadge(isMastered(f.id)?'mastered':f.status)}<br>${!isMastered(f.id)?`<button class="btn btn-success btn-sm" style="margin-top:4px;" onclick="markMastered('${f.id}')">我会了</button>`:`<button class="btn btn-sm btn-outline" style="margin-top:4px;font-size:.7rem;" onclick="markMastered('${f.id}')">取消掌握</button>`}</div></div>`;
     }
     html += '</div>';
   }
@@ -811,10 +811,17 @@ async function setStartDate(dateStr) {
 }
 
 async function markMastered(formulaId) {
-  state.mastered[formulaId] = true;
-  await saveState();
-  renderAll();
-  showToast('✅ 已掌握！放入掌握库');
+  if (state.mastered[formulaId]) {
+    delete state.mastered[formulaId];
+    await saveState();
+    renderAll();
+    showToast('已取消掌握，可重新学习');
+  } else {
+    state.mastered[formulaId] = true;
+    await saveState();
+    renderAll();
+    showToast('✅ 已掌握！放入掌握库');
+  }
 }
 
 async function completeDay(dayNum) {
@@ -831,12 +838,15 @@ async function undoCompleteDay(dayNum) {
 }
 
 async function resetTraining() {
-  if (confirm('确定要重新开始训练吗？这会清除所有进度和成绩记录。')) {
+  if (confirm('确定要重置所有训练进度吗？\n这会清除：开始日期、每日完成记录、计时成绩\n但会保留：已掌握的公式')) {
+    const kept = state.mastered;
     state = defaultState();
+    state.mastered = kept;
     await saveState();
     planWeek = 1; timerMode = 'countdown'; countdownTotal = 5 * 60; countdownRemaining = 5 * 60;
     stopCountdown(); stopStopwatch(); stopwatchElapsed = 0;
     renderAll();
+    showToast('已重置，掌握公式保留');
   }
 }
 
