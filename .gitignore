@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+cube_trainer.db
+data/
+.DS_Store
+venv/

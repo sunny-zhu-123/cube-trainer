@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>魔方训练助手</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --primary: #7c3aed;
+  --primary-light: #ede9fe;
+  --accent: #ec4899;
+  --success: #10b981;
+  --success-light: #d1fae5;
+  --warning: #f59e0b;
+  --warning-light: #fef3c7;
+  --danger: #ef4444;
+  --bg: #f5f3ff;
+  --card: #ffffff;
+  --text: #1e1b4b;
+  --text2: #6b7280;
+  --border: #e5e7eb;
+  --radius: 16px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.1);
+  --tab-h: 64px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+html { font-size: 16px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+  padding-bottom: calc(var(--tab-h) + var(--safe-b) + 16px);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* ---- Auth Overlay ---- */
+.auth-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.auth-card {
+  background: #fff; border-radius: 20px; padding: 32px 24px 24px;
+  width: 100%; max-width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+.auth-card h2 { text-align: center; font-size: 1.3rem; margin-bottom: 4px; }
+.auth-card .auth-sub { text-align: center; color: var(--text2); font-size: .8rem; margin-bottom: 20px; }
+.auth-card .field { margin-bottom: 14px; }
+.auth-card label { display: block; font-size: .8rem; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+.auth-card input[type="text"],
+.auth-card input[type="password"] {
+  width: 100%; padding: 12px 14px; border: 2px solid var(--border);
+  border-radius: 12px; font-size: 1rem; font-family: inherit;
+  transition: border-color .2s; -webkit-appearance: none;
+}
+.auth-card input:focus { outline: none; border-color: var(--primary); }
+.auth-card .auth-error { color: var(--danger); font-size: .8rem; text-align: center; min-height: 20px; margin-bottom: 8px; }
+.auth-card .auth-switch { text-align: center; font-size: .8rem; color: var(--text2); margin-top: 14px; }
+.auth-card .auth-switch a { color: var(--primary); font-weight: 600; cursor: pointer; }
+
+/* ---- Loading ---- */
+.loading-screen { display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 80px 24px; }
+.loading-screen .spinner { width: 40px; height: 40px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff; padding: 16px 20px 20px; position: sticky; top: 0; z-index: 10;
+  box-shadow: 0 2px 12px rgba(124,58,237,.3);
+}
+.header-row { display: flex; justify-content: space-between; align-items: center; }
+.header h1 { font-size: 1.2rem; font-weight: 700; }
+.header .user-area { display: flex; align-items: center; gap: 8px; font-size: .8rem; }
+.header .user-area .logout-btn { background: rgba(255,255,255,.2); color: #fff; border: none; padding: 5px 12px; border-radius: 12px; cursor: pointer; font-size: .75rem; font-weight: 600; }
+.header .sub { font-size: .75rem; opacity: .85; margin-top: 2px; }
+
+.container { max-width: 500px; margin: 0 auto; padding: 16px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Bottom Nav */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: calc(var(--tab-h) + var(--safe-b)); padding-bottom: var(--safe-b);
+  background: var(--card); border-top: 1px solid var(--border);
+  display: flex; z-index: 20; box-shadow: 0 -2px 10px rgba(0,0,0,.05);
+}
+.bottom-nav button {
+  flex: 1; border: none; background: none;
+  font-size: .7rem; color: var(--text2);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 2px; cursor: pointer; transition: color .2s;
+}
+.bottom-nav button .ico { font-size: 1.4rem; }
+.bottom-nav button.active { color: var(--primary); font-weight: 600; }
+
+/* Cards */
+.card { background: var(--card); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.card h3 { font-size: 1rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+
+/* Badges */
+.badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: .75rem; font-weight: 600; }
+.badge-mastered { background: var(--success-light); color: #065f46; }
+.badge-learning { background: var(--warning-light); color: #92400e; }
+.badge-new { background: var(--primary-light); color: #5b21b6; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 20px; border-radius: 24px; border: none; font-size: .9rem; font-weight: 600; cursor: pointer; transition: all .2s; -webkit-tap-highlight-color: transparent; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:active { background: #6d28d9; transform: scale(.97); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:active { background: #059669; transform: scale(.97); }
+.btn-outline { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
+.btn-outline:active { background: var(--primary-light); }
+.btn-sm { padding: 6px 14px; font-size: .8rem; }
+.btn-block { width: 100%; justify-content: center; }
+.btn:disabled { opacity: .5; pointer-events: none; }
+
+/* Training sections */
+.train-section { background: #faf9ff; border-radius: 12px; padding: 14px; margin-bottom: 10px; border-left: 3px solid var(--primary); }
+.train-section.rest { border-left-color: var(--accent); background: #fdf2f8; }
+.train-section.free { border-left-color: var(--success); background: #ecfdf5; }
+.train-section .ts-title { font-weight: 700; font-size: .9rem; margin-bottom: 4px; }
+.train-section .ts-time { font-size: .75rem; color: var(--text2); margin-bottom: 6px; }
+.train-section .ts-item { font-size: .85rem; padding: 2px 0; padding-left: 12px; position: relative; }
+.train-section .ts-item::before { content: "·"; position: absolute; left: 0; font-weight: 700; color: var(--primary); }
+
+/* Formula card */
+.formula-card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.formula-info { flex: 1; min-width: 0; }
+.formula-info .f-name { font-weight: 700; font-size: .9rem; margin-bottom: 4px; }
+.formula-info .f-not { font-family: "SF Mono","Menlo","Consolas",monospace; font-size: .85rem; background: #f4f0ff; padding: 6px 10px; border-radius: 8px; word-break: break-all; letter-spacing: .04em; line-height: 1.5; }
+.formula-card .f-status { flex-shrink: 0; }
+
+/* Week selector */
+.week-tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+.week-tab { flex-shrink: 0; padding: 8px 18px; border-radius: 20px; border: 2px solid var(--border); background: #fff; font-size: .85rem; font-weight: 600; cursor: pointer; transition: all .2s; white-space: nowrap; }
+.week-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* Timer */
+.timer-display { text-align: center; padding: 24px 0; }
+.timer-display .time { font-size: 3.8rem; font-weight: 800; font-variant-numeric: tabular-nums; font-family: "SF Mono","Menlo","Consolas",monospace; letter-spacing: .02em; }
+.timer-display .time.warning { color: var(--warning); }
+.timer-display .time.danger { color: var(--danger); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+.timer-presets { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+.timer-presets button { padding: 8px 20px; border-radius: 20px; border: 2px solid var(--border); background: #fff; font-size: .85rem; cursor: pointer; font-weight: 600; transition: all .2s; }
+.timer-presets button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.timer-controls { display: flex; gap: 12px; justify-content: center; margin-top: 8px; }
+
+.stopwatch-display { text-align: center; padding: 16px 0; }
+.stopwatch-display .sw-time { font-size: 3rem; font-weight: 800; font-variant-numeric: tabular-nums; font-family: "SF Mono","Menlo","Consolas",monospace; }
+
+/* Time list */
+.time-list { margin-top: 12px; }
+.time-list .tl-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #fff; border-radius: 10px; margin-bottom: 6px; font-size: .85rem; }
+.time-list .tl-best { color: var(--success); font-weight: 700; }
+.time-stats { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.time-stat { flex: 1; min-width: 90px; text-align: center; background: #fff; border-radius: 12px; padding: 12px 8px; box-shadow: var(--shadow); }
+.time-stat .ts-val { font-size: 1.2rem; font-weight: 800; color: var(--primary); }
+.time-stat .ts-lbl { font-size: .7rem; color: var(--text2); margin-top: 2px; }
+
+/* Settings */
+.settings-bar { display: flex; align-items: center; justify-content: space-between; background: var(--card); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; box-shadow: var(--shadow); font-size: .85rem; flex-wrap: wrap; gap: 8px; }
+.settings-bar input[type="date"] { border: 2px solid var(--border); border-radius: 10px; padding: 6px 10px; font-size: .85rem; font-family: inherit; }
+
+/* Toast */
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1e1b4b; color: #fff; padding: 10px 24px; border-radius: 24px; font-size: .85rem; font-weight: 600; z-index: 100; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+
+.celebration { text-align: center; padding: 40px 20px; }
+.celebration .big-emoji { font-size: 5rem; }
+.celebration h2 { font-size: 1.5rem; margin: 16px 0 8px; }
+
+.progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+.progress-bar .fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width .4s ease; }
+.rest-day-card { text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- Auth Overlay -->
+<div class="auth-overlay" id="authOverlay" style="display:none;">
+  <div class="auth-card">
+    <h2>魔方训练助手</h2>
+    <p class="auth-sub">登录以记录你的训练进度</p>
+    <div class="auth-error" id="authError"></div>
+    <!-- Login Form -->
+    <form id="loginForm" onsubmit="return doLogin()">
+      <div class="field"><label>用户名</label><input type="text" id="loginUser" autocomplete="username" placeholder="输入用户名"></div>
+      <div class="field"><label>密码</label><input type="password" id="loginPass" autocomplete="current-password" placeholder="输入密码"></div>
+      <button type="submit" class="btn btn-primary btn-block" id="loginBtn">登 录</button>
+    </form>
+    <!-- Register Form -->
+    <form id="registerForm" style="display:none;" onsubmit="return doRegister()">
+      <div class="field"><label>用户名</label><input type="text" id="regUser" autocomplete="username" placeholder="2-20个字符"></div>
+      <div class="field"><label>密码</label><input type="password" id="regPass" autocomplete="new-password" placeholder="至少3个字符"></div>
+      <button type="submit" class="btn btn-success btn-block" id="regBtn">注 册</button>
+    </form>
+    <div class="auth-switch" id="authSwitch">没有账号？<a onclick="showRegister()">立即注册</a></div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <div style="color:var(--text2);">加载中...</div>
+</div>
+
+<!-- Main App -->
+<div id="mainApp" style="display:none;">
+  <div class="header">
+    <div class="header-row">
+      <h1>魔方训练助手</h1>
+      <div class="user-area">
+        <span id="headerUser"></span>
+        <button class="logout-btn" onclick="doLogout()">退出</button>
+      </div>
+    </div>
+    <div class="sub" id="headerSub">CFOP 30天提速计划</div>
+  </div>
+  <div class="container">
+    <div class="tab-content active" id="tab-today"></div>
+    <div class="tab-content" id="tab-plan"></div>
+    <div class="tab-content" id="tab-formulas"></div>
+    <div class="tab-content" id="tab-timer"></div>
+  </div>
+  <nav class="bottom-nav">
+    <button class="active" data-tab="today"><span class="ico">📅</span>今日</button>
+    <button data-tab="plan"><span class="ico">📋</span>计划</button>
+    <button data-tab="formulas"><span class="ico">📖</span>公式</button>
+    <button data-tab="timer"><span class="ico">⏱️</span>计时</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== DATA ====================
+
+const FORMULAS = [
+  { id: 'oll21', cat: 'OLL', name: '小鱼一', not: "(R U R' U) (R U2' R')", status: 'mastered' },
+  { id: 'oll22', cat: 'OLL', name: '小鱼二', not: "(R' U' R U') (R' U2 R)", status: 'mastered' },
+  { id: 'pll_cw', cat: 'PLL', name: '顺时针三棱换', not: "(R U' R U R U R U' R' U' R2)", status: 'mastered' },
+  { id: 'pll_ccw', cat: 'PLL', name: '逆时针三棱换', not: "(R' U R' U' R' U' R' U R U R2)", status: 'learning', targetWeek: 1 },
+  { id: 'pll_diag', cat: 'PLL', name: '对角换', not: "(x R' U R' D2 R U' R' D2 R2 x')", status: 'new', targetWeek: 1 },
+  { id: 'f2l_principle', cat: 'F2L', name: 'F2L原理', not: '理解"拼对-入槽"思想', status: 'new', targetWeek: 2 },
+  { id: 'f2l_case1', cat: 'F2L', name: 'F2L情况1', not: "(R U R')", status: 'new', targetWeek: 2 },
+  { id: 'f2l_case2', cat: 'F2L', name: 'F2L情况2', not: "(R U' R') (d R' U R)", status: 'new', targetWeek: 3 },
+];
+
+const TRAINING_DAYS = [
+  // ===== WEEK 1 =====
+  { day: 1, week: 1, wd: '周一', type: 'normal', dur: '12分钟', masteryCheck: null, newFormula: null,
+    sections: [
+      { title: '手法激活', time: '2分钟', icon: '🔥', items: ["(R U R' U') 连做20遍"] },
+      { title: '攻克弱点', time: '7分钟', icon: '🎯', items: ['全力练习逆时针三棱换','慢做10遍，找和顺时针的镜像对称感','连续做15遍，不看公式纸'] },
+      { title: '复习熟公式', time: '3分钟', icon: '✅', items: ['小鱼一、小鱼二、顺时针三棱换 各做5遍'] },
+    ]},
+  { day: 2, week: 1, wd: '周二', type: 'short', dur: '5-10分钟', newFormula: null,
+    sections: [
+      { title: '专项练习', time: '全时段', icon: '🎯', items: ['逆时针三棱换连续做20遍，目标不卡顿'] },
+      { title: '应用练习', time: '', icon: '🧩', items: ['正常还原3次，顶层遇到就用新公式'] },
+    ],
+    masteryCheck: { formulaId: 'pll_ccw', name: '逆时针三棱换', condition: '连续5次流畅' }},
+  { day: 3, week: 1, wd: '周三', type: 'short', dur: '5-10分钟', masteryCheck: null, newFormula: null,
+    sections: [
+      { title: '复习PLL', time: '', icon: '🔄', items: ['顺/逆三棱换各做10遍'] },
+      { title: '完整还原', time: '', icon: '🧩', items: ['正常还原3次，练OLL和PLL的衔接'] },
+    ]},
+  { day: 4, week: 1, wd: '周四', type: 'normal', dur: '15分钟', masteryCheck: null,
+    sections: [
+      { title: '复习', time: '3分钟', icon: '✅', items: ['4个公式快速过一遍'] },
+      { title: '学习新公式', time: '10分钟', icon: '🆕', items: ["学PLL对角换 (x R' U R' D2 R U' R' D2 R2 x')",'这个公式有点怪，先慢慢分段做10遍','再试着连起来做'] },
+      { title: '应用', time: '2分钟', icon: '🧩', items: ['打乱魔方做出对角换情况，用新公式解5次'] },
+    ],
+    newFormula: { id: 'pll_diag', name: 'PLL对角换', not: "(x R' U R' D2 R U' R' D2 R2 x')", cat: 'PLL' }},
+  { day: 5, week: 1, wd: '周五', type: 'rest', dur: '休息', masteryCheck: null, newFormula: null, sections: [] },
+  { day: 6, week: 1, wd: '周六', type: 'normal', dur: '15分钟', newFormula: null,
+    sections: [
+      { title: '复习对角换', time: '5分钟', icon: '🔄', items: ['对角换连续做15遍'] },
+      { title: '全部PLL练习', time: '5分钟', icon: '📋', items: ['顺/逆/对角三个公式交替做'] },
+      { title: '计时练习', time: '5分钟', icon: '⏱️', items: ['正常还原5次，记录成绩'] },
+    ],
+    masteryCheck: { formulaId: 'pll_diag', name: '对角换', condition: '连续5次流畅' }},
+  { day: 7, week: 1, wd: '周日', type: 'free', dur: '自由', masteryCheck: null, newFormula: null,
+    sections: [{ title: '自由玩魔方', time: '', icon: '🎉', items: ['把掌握库的公式随便练练','想怎么玩就怎么玩'] }]},
+
+  // ===== WEEK 2 =====
+  { day: 8, week: 2, wd: '周一', type: 'normal', dur: '15分钟', masteryCheck: null,
+    sections: [
+      { title: '掌握库复习', time: '3分钟', icon: '✅', items: ['小鱼一/二、三个PLL快速过一遍'] },
+      { title: 'F2L原理学习', time: '12分钟', icon: '💡', items: ['不学公式，先理解思想','F2L = 把角块和棱块拼成一对 → 一起放进槽里','打乱魔方，找白色角块和对应棱块','试着拼到一起再放进去，慢没关系','理解"拼对-入槽"这个动作就算成功！'] },
+    ],
+    newFormula: { id: 'f2l_principle', name: 'F2L原理', not: '理解"拼对-入槽"思想', cat: 'F2L' }},
+  { day: 9, week: 2, wd: '周二', type: 'short', dur: '5-10分钟', masteryCheck: null, newFormula: null,
+    sections: [{ title: '慢拧F2L', time: '全时段', icon: '🐢', items: ['慢拧3次，只做前两层','用理解的原理去拼F2L','不要求速度，只求做对'] }]},
+  { day: 10, week: 2, wd: '周三', type: 'short', dur: '5-10分钟', masteryCheck: null, newFormula: null,
+    sections: [{ title: '观察力训练', time: '全时段', icon: '👀', items: ['继续慢拧F2L','尝试拼第一对时，眼睛去找第二对的角块和棱块'] }]},
+  { day: 11, week: 2, wd: '周四', type: 'normal', dur: '15分钟', masteryCheck: null,
+    sections: [
+      { title: '掌握库复习', time: '3分钟', icon: '✅', items: ['所有公式过一遍'] },
+      { title: '学F2L情况1', time: '10分钟', icon: '🆕', items: ['角块和棱块在顶层，颜色错开',"公式: (R U R') 及镜像",'不断做出这个情况再解掉，重复20遍'] },
+      { title: '应用', time: '2分钟', icon: '🧩', items: ['还原时强制用这个公式'] },
+    ],
+    newFormula: { id: 'f2l_case1', name: 'F2L情况1', not: "(R U R')", cat: 'F2L' }},
+  { day: 12, week: 2, wd: '周五', type: 'rest', dur: '休息', masteryCheck: null, newFormula: null, sections: [] },
+  { day: 13, week: 2, wd: '周六', type: 'normal', dur: '15分钟', newFormula: null,
+    sections: [
+      { title: '复习情况1', time: '5分钟', icon: '🔄', items: ['F2L情况1连续做20遍'] },
+      { title: '慢拧结合', time: '5分钟', icon: '🐢', items: ['慢拧5次，遇到情况1用新公式','其他三组F2L继续用理解的方式做'] },
+      { title: '计时练习', time: '5分钟', icon: '⏱️', items: ['正常还原5次'] },
+    ],
+    masteryCheck: { formulaId: 'f2l_case1', name: 'F2L情况1', condition: '看到就能做' }},
+  { day: 14, week: 2, wd: '周日', type: 'free', dur: '自由', masteryCheck: null, newFormula: null,
+    sections: [{ title: '自由玩魔方', time: '', icon: '🎉', items: ['重点感受F2L让还原步数变少了'] }]},
+
+  // ===== WEEK 3 =====
+  { day: 15, week: 3, wd: '周一', type: 'normal', dur: '15分钟', masteryCheck: null,
+    sections: [
+      { title: '掌握库复习', time: '3分钟', icon: '✅', items: ['所有OLL/PLL/F2L过一遍'] },
+      { title: '学F2L情况2', time: '10分钟', icon: '🆕', items: ['角块和棱块连在一起但颜色错位',"公式: (R U' R') (d R' U R)",'做出这个情况用公式解掉，重复20遍'] },
+      { title: '对比练习', time: '2分钟', icon: '🔍', items: ['情况1和情况2交替练10次，学会区分'] },
+    ],
+    newFormula: { id: 'f2l_case2', name: 'F2L情况2', not: "(R U' R') (d R' U R)", cat: 'F2L' }},
+  { day: 16, week: 3, wd: '周二', type: 'short', dur: '5-10分钟', masteryCheck: null, newFormula: null,
+    sections: [{ title: '复习情况2', time: '全时段', icon: '🔄', items: ['F2L情况2连续做20遍','慢拧3次，强制使用'] }]},
+  { day: 17, week: 3, wd: '周三', type: 'short', dur: '5-10分钟', newFormula: null,
+    sections: [
+      { title: '复习', time: '', icon: '🔄', items: ['情况1和情况2各10遍'] },
+      { title: '观察力训练', time: '', icon: '👀', items: ['慢拧F2L，手在做当前一对','眼睛去找下一对'] },
+    ],
+    masteryCheck: { formulaId: 'f2l_case2', name: 'F2L情况2', condition: '连续5次流畅' }},
+  { day: 18, week: 3, wd: '周四', type: 'normal', dur: '15分钟', masteryCheck: null, newFormula: null,
+    sections: [
+      { title: '全部复习', time: '5分钟', icon: '✅', items: ['掌握库里所有公式快速过一遍'] },
+      { title: 'F2L专项练习', time: '10分钟', icon: '👀', items: ['慢拧10次','重点：目光始终放在找下一对上','减少发呆和停顿'] },
+    ]},
+  { day: 19, week: 3, wd: '周五', type: 'rest', dur: '休息', masteryCheck: null, newFormula: null, sections: [] },
+  { day: 20, week: 3, wd: '周六', type: 'normal', dur: '15分钟', masteryCheck: null, newFormula: null,
+    sections: [
+      { title: 'F2L巩固', time: '5分钟', icon: '🔄', items: ['情况1和2各练10遍'] },
+      { title: '整体测速', time: '10分钟', icon: '⏱️', items: ['连续还原12次，记录每次成绩','重点关注F2L阶段是不是更连贯了'] },
+    ]},
+  { day: 21, week: 3, wd: '周日', type: 'free', dur: '自由', masteryCheck: null, newFormula: null,
+    sections: [{ title: '自由玩魔方', time: '', icon: '🎉', items: ['可以看一个F2L教学视频','找第三个你想学的情况'] }]},
+
+  // ===== WEEK 4 =====
+  { day: 22, week: 4, wd: '周一', type: 'normal', dur: '15分钟', masteryCheck: null, newFormula: null,
+    sections: [
+      { title: '掌握库总复习', time: '5分钟', icon: '✅', items: ['所有OLL/PLL/F2L快速过一遍'] },
+      { title: '分段计时找弱点', time: '10分钟', icon: '🔍', items: ['还原5次，心里计时：','十字多久？F2L四组多久？OLL+PLL多久？','找到最慢的一段，那就是要攻克的弱点！'] },
+    ]},
+  { day: 23, week: 4, wd: '周二', type: 'short', dur: '5-10分钟', masteryCheck: null, newFormula: null,
+    sections: [{ title: '弱点专项', time: '全时段', icon: '🎯', items: ['根据昨天找到的弱点专项练习','F2L慢就练观察','OP慢就狂练公式手速'] }]},
+  { day: 24, week: 4, wd: '周三', type: 'short', dur: '5-10分钟', masteryCheck: null, newFormula: null,
+    sections: [
+      { title: '复习+还原', time: '', icon: '🔄', items: ['掌握库全部公式做一遍'] },
+      { title: '减少停顿', time: '', icon: '⚡', items: ['连续还原5次','争取减少顶层判断时的停顿'] },
+    ]},
+  { day: 25, week: 4, wd: '周四', type: 'normal', dur: '15分钟', masteryCheck: null, newFormula: null,
+    sections: [
+      { title: '热身', time: '3分钟', icon: '🔥', items: ['全部公式快速过一遍'] },
+      { title: '模拟考试', time: '12分钟', icon: '📝', items: ['连续还原12次，记录每次成绩','算平均分','看看有没有进入25-30秒！'] },
+    ]},
+  { day: 26, week: 4, wd: '周五', type: 'rest', dur: '休息', masteryCheck: null, newFormula: null, sections: [] },
+  { day: 27, week: 4, wd: '周六', type: 'normal', dur: '15分钟', newFormula: null,
+    sections: [
+      { title: '挑战日热身', time: '5分钟', icon: '🔥', items: ['轻松热身，公式过一遍'] },
+      { title: '最终挑战', time: '10分钟', icon: '🏆', items: ['连续还原5次，取最好成绩','看看一个月下来进步了多少！','给家人或同学表演一次连贯的还原'] },
+    ],
+    masteryCheck: { formulaId: '_complete', name: '一个月训练完成', condition: '恭喜！' }},
+  { day: 28, week: 4, wd: '周日', type: 'free', dur: '自由', masteryCheck: null, newFormula: null,
+    sections: [{ title: '庆祝+规划下一步', time: '', icon: '🎊', items: ['太棒了！你完成了30天训练！','想想下个月要学什么','可以继续找我制定新计划哦'] }]},
+];
+
+// ==================== STATE ====================
+
+const STORAGE_KEY = 'cube_trainer_offline';
+let state = defaultState();
+let currentUser = null;
+
+function defaultState() {
+  return {
+    startDate: '',
+    mastered: { oll21: true, oll22: true, pll_cw: true },
+    completedDays: {},
+    solveTimes: [],
+  };
+}
+
+// ==================== API ====================
+
+async function api(path, options = {}) {
+  try {
+    const res = await fetch(path, {
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '请求失败');
+    return data;
+  } catch (e) {
+    if (e.message === 'Failed to fetch') throw new Error('网络连接失败');
+    throw e;
+  }
+}
+
+async function loadState() {
+  try {
+    const data = await api('/api/state');
+    if (data.state && Object.keys(data.state).length > 0) {
+      state = { ...defaultState(), ...data.state };
+      return;
+    }
+  } catch (e) {
+    // fallback to localStorage
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) { state = { ...defaultState(), ...JSON.parse(raw) }; return; }
+    } catch (_) {}
+  }
+  state = defaultState();
+}
+
+async function saveState() {
+  // Save via API
+  try {
+    await api('/api/state', { method: 'PUT', body: JSON.stringify({ state }) });
+  } catch (_) {}
+  // Also save local backup
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
+}
+
+// ==================== AUTH ====================
+
+async function checkAuth() {
+  try {
+    const data = await api('/api/auth/me');
+    if (data.logged_in) {
+      currentUser = data.username;
+      document.getElementById('headerUser').textContent = '👤 ' + currentUser;
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
+function showLogin() {
+  document.getElementById('loginForm').style.display = '';
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('authSwitch').innerHTML = '没有账号？<a onclick="showRegister()">立即注册</a>';
+  document.getElementById('authError').textContent = '';
+  document.getElementById('authOverlay').style.display = '';
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'none';
+}
+
+function showRegister() {
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('registerForm').style.display = '';
+  document.getElementById('authSwitch').innerHTML = '已有账号？<a onclick="showLogin()">返回登录</a>';
+  document.getElementById('authError').textContent = '';
+}
+
+async function doLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  if (!username || !password) { document.getElementById('authError').textContent = '请填写完整'; return false; }
+
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = '登录中...';
+  document.getElementById('authError').textContent = '';
+
+  try {
+    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+    currentUser = data.username;
+    document.getElementById('headerUser').textContent = '👤 ' + currentUser;
+    await loadState();
+    hideAuth();
+    renderAll();
+  } catch (e) {
+    document.getElementById('authError').textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '登 录';
+  }
+  return false;
+}
+
+async function doRegister() {
+  const username = document.getElementById('regUser').value.trim();
+  const password = document.getElementById('regPass').value;
+  if (!username || !password) { document.getElementById('authError').textContent = '请填写完整'; return false; }
+  if (username.length < 2) { document.getElementById('authError').textContent = '用户名至少2个字符'; return false; }
+  if (password.length < 3) { document.getElementById('authError').textContent = '密码至少3个字符'; return false; }
+
+  const btn = document.getElementById('regBtn');
+  btn.disabled = true; btn.textContent = '注册中...';
+  document.getElementById('authError').textContent = '';
+
+  try {
+    const data = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ username, password }) });
+    currentUser = data.username;
+    document.getElementById('headerUser').textContent = '👤 ' + currentUser;
+    await loadState();
+    hideAuth();
+    renderAll();
+  } catch (e) {
+    document.getElementById('authError').textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '注 册';
+  }
+  return false;
+}
+
+async function doLogout() {
+  try { await api('/api/auth/logout', { method: 'POST' }); } catch (_) {}
+  currentUser = null;
+  state = defaultState();
+  showLogin();
+}
+
+function hideAuth() {
+  document.getElementById('authOverlay').style.display = 'none';
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = '';
+}
+
+// ==================== HELPERS ====================
+
+function getToday() { return new Date().toISOString().slice(0, 10); }
+
+function getTrainingDayIndex(todayStr) {
+  if (!state.startDate) return -1;
+  const start = new Date(state.startDate + 'T00:00:00');
+  const today = new Date(todayStr + 'T00:00:00');
+  const diff = Math.floor((today - start) / 86400000);
+  return diff < 0 ? -1 : diff >= 28 ? 28 : diff;
+}
+
+function isMastered(formulaId) { return !!state.mastered[formulaId]; }
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60), s = Math.floor(seconds % 60), ms = Math.floor((seconds % 1) * 100);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms).padStart(2,'0')}`;
+}
+function formatTimeShort(seconds) {
+  const m = Math.floor(seconds / 60), s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._timeout);
+  el._timeout = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function statusBadge(status) {
+  if (status === 'mastered') return '<span class="badge badge-mastered">✅ 已掌握</span>';
+  if (status === 'learning') return '<span class="badge badge-learning">📖 学习中</span>';
+  return '<span class="badge badge-new">🆕 待学</span>';
+}
+
+function nextMonday() {
+  const d = new Date();
+  d.setDate(d.getDate() + ((1 + 7 - d.getDay()) % 7 || 7));
+  return d.toISOString().slice(0, 10);
+}
+
+// ==================== RENDER: TODAY ====================
+
+function renderToday() {
+  const el = document.getElementById('tab-today');
+  const todayStr = getToday();
+  const dayIndex = getTrainingDayIndex(todayStr);
+
+  if (!state.startDate) {
+    el.innerHTML = `
+      <div class="card" style="text-align:center;padding:40px 20px;">
+        <div style="font-size:3rem;margin-bottom:16px;">🗓️</div>
+        <h3>设置训练开始日期</h3>
+        <p style="color:var(--text2);margin:8px 0 16px;font-size:.9rem;">你的训练计划将从这一天开始</p>
+        <input type="date" id="startDateInput" value="${nextMonday()}"
+          style="padding:10px 16px;border-radius:12px;border:2px solid var(--border);font-size:1rem;font-family:inherit;margin-bottom:12px;">
+        <br><button class="btn btn-primary" onclick="setStartDate()">开始训练 🚀</button>
+      </div>`;
+    updateHeaderSub(-1); return;
+  }
+
+  if (dayIndex < 0) {
+    const daysUntil = Math.ceil((new Date(state.startDate + 'T00:00:00') - new Date(todayStr + 'T00:00:00')) / 86400000);
+    el.innerHTML = `
+      <div class="card" style="text-align:center;padding:40px 20px;">
+        <div style="font-size:3rem;">⏳</div>
+        <h3>训练还没开始哦</h3>
+        <p style="color:var(--text2);">开始日期：${state.startDate}</p>
+        <p style="font-size:1.2rem;font-weight:700;color:var(--primary);">还有 ${daysUntil} 天</p>
+        <div class="settings-bar" style="margin-top:16px;"><span>调整日期</span><input type="date" value="${state.startDate}" onchange="setStartDate(this.value)"></div>
+      </div>`;
+    updateHeaderSub(-1); return;
+  }
+
+  if (dayIndex >= 28) {
+    const masteredCount = Object.keys(state.mastered).length;
+    el.innerHTML = `
+      <div class="celebration"><div class="big-emoji">🏆</div><h2>训练完成！</h2><p>太厉害了！30天训练计划全部完成</p>
+        <div style="display:flex;gap:12px;justify-content:center;margin:16px 0;">
+          <div class="time-stat"><div class="ts-val">${masteredCount}</div><div class="ts-lbl">已掌握公式</div></div>
+          <div class="time-stat"><div class="ts-val">${state.solveTimes.length}</div><div class="ts-lbl">计时次数</div></div>
+        </div>
+        <button class="btn btn-outline" onclick="resetTraining()">重新开始训练</button></div>`;
+    updateHeaderSub(28); return;
+  }
+
+  const td = TRAINING_DAYS[dayIndex];
+  updateHeaderSub(dayIndex);
+
+  const completedCount = Object.keys(state.completedDays).length;
+  const progressPct = Math.round((completedCount / 28) * 100);
+
+  let html = `
+    <div class="settings-bar">
+      <div><strong>第${td.week}周 · ${td.wd}</strong> <span style="color:var(--text2);font-size:.8rem;">第${td.day}天/28天</span></div>
+      <div style="font-size:.8rem;color:var(--text2);">${state.startDate} 起</div>
+    </div>
+    <div class="progress-bar" style="margin-bottom:16px;"><div class="fill" style="width:${progressPct}%;"></div></div>`;
+
+  if (td.type === 'rest') {
+    html += `<div class="card rest-day-card" style="background:linear-gradient(135deg,#fdf2f8,#fce7f3);border:2px dashed var(--accent);"><div style="font-size:3rem;">😴</div><h3>周五休息日</h3><p style="color:var(--text2);">好好休息，让肌肉和大脑消化这周学的内容</p><p style="color:var(--accent);font-weight:600;">明天继续加油！</p></div>`;
+  } else if (td.type === 'free') {
+    html += `<div class="card rest-day-card" style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:2px dashed var(--success);"><div style="font-size:3rem;">🎉</div><h3>周日自由日</h3><p style="color:var(--text2);">想怎么玩就怎么玩！</p></div>`;
+  }
+
+  for (const sec of td.sections) {
+    html += `<div class="train-section"><div class="ts-title">${sec.icon} ${sec.title}</div>${sec.time?`<div class="ts-time">⏱ ${sec.time}</div>`:''}${sec.items.map(i=>`<div class="ts-item">${i}</div>`).join('')}</div>`;
+  }
+
+  if (td.newFormula) {
+    const nf = td.newFormula;
+    html += `<div class="card" style="border:2px solid var(--primary);background:var(--primary-light);"><h3>🆕 今日新公式</h3>
+      <div style="font-weight:700;margin-bottom:4px;">${nf.name} <span style="font-size:.75rem;color:var(--text2);">${nf.cat}</span></div>
+      <div class="f-not" style="font-size:.95rem;margin-bottom:8px;">${nf.not}</div>
+      ${!isMastered(nf.id)?`<button class="btn btn-success btn-sm" onclick="markMastered('${nf.id}')">我会了！放入掌握库 ✅</button>`:'<span class="badge badge-mastered">✅ 已掌握</span>'}</div>`;
+  }
+
+  if (td.masteryCheck) {
+    const mc = td.masteryCheck;
+    if (mc.formulaId === '_complete') {
+      html += `<div class="card" style="text-align:center;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid var(--warning);"><div style="font-size:2rem;">🏆</div><h3>${mc.name}</h3><p>${mc.condition}</p></div>`;
+    } else if (!isMastered(mc.formulaId)) {
+      html += `<div class="card" style="border:2px dashed var(--warning);background:var(--warning-light);"><h3>❓ 掌握确认</h3>
+        <p style="font-size:.9rem;margin-bottom:8px;"><strong>${mc.name}</strong> 是否掌握了？</p>
+        <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px;">标准：${mc.condition}</p>
+        <button class="btn btn-success btn-block" onclick="markMastered('${mc.formulaId}')">✅ 掌握了！放入掌握库</button></div>`;
+    } else {
+      html += `<div class="card" style="border:2px solid var(--success);background:var(--success-light);"><h3>✅ ${mc.name} 已掌握</h3><p style="font-size:.8rem;color:var(--text2);">之前已经确认掌握，继续加油！</p></div>`;
+    }
+  }
+
+  const isCompleted = state.completedDays[td.day];
+  html += `<div style="text-align:center;margin:16px 0;">
+    ${!isCompleted?`<button class="btn btn-primary btn-block" onclick="completeDay(${td.day})">✅ 完成今日训练</button>`
+    :`<div class="card" style="background:var(--success-light);text-align:center;"><span class="badge badge-mastered" style="font-size:.9rem;">✅ 今日已完成</span> <button class="btn btn-sm btn-outline" onclick="undoCompleteDay(${td.day})">撤销</button></div>`}</div>`;
+
+  el.innerHTML = html;
+}
+
+// ==================== RENDER: PLAN ====================
+
+let planWeek = 1;
+function renderPlan() {
+  const el = document.getElementById('tab-plan');
+  let html = `<div class="week-tabs">${[1,2,3,4].map(w=>`<div class="week-tab ${w===planWeek?'active':''}" onclick="planWeek=${w};renderPlan();">第${w}周</div>`).join('')}</div>`;
+  const days = TRAINING_DAYS.filter(d=>d.week===planWeek);
+  for (const td of days) {
+    const done = state.completedDays[td.day];
+    html += `<div class="card" style="${done?'border-left:4px solid var(--success);':''}"><h3>${done?'✅':td.type==='rest'?'😴':td.type==='free'?'🎉':'📌'} 第${td.day}天 · ${td.wd} <span style="font-size:.75rem;color:var(--text2);">${td.dur}</span></h3>`;
+    if (td.type==='rest') html+='<p style="color:var(--accent);">休息日，好好放松！</p>';
+    else if (td.type==='free') html+='<p style="color:var(--success);">自由练习日</p>';
+    for (const sec of td.sections) html+=`<div class="train-section" style="margin-bottom:6px;"><div class="ts-title">${sec.icon} ${sec.title}</div>${sec.time?`<div class="ts-time">⏱ ${sec.time}</div>`:''}${sec.items.map(i=>`<div class="ts-item">${i}</div>`).join('')}</div>`;
+    if (td.newFormula) html+=`<div style="background:var(--primary-light);border-radius:10px;padding:10px;margin-top:6px;font-size:.85rem;">🆕 <strong>新公式：</strong>${td.newFormula.name} — <code style="font-size:.8rem;">${td.newFormula.not}</code> ${isMastered(td.newFormula.id)?'<span class="badge badge-mastered">已掌握</span>':''}</div>`;
+    if (td.masteryCheck&&td.masteryCheck.formulaId!=='_complete') html+=`<div style="background:var(--warning-light);border-radius:10px;padding:10px;margin-top:6px;font-size:.85rem;">❓ <strong>掌握确认：</strong>${td.masteryCheck.name}（${td.masteryCheck.condition}）${isMastered(td.masteryCheck.formulaId)?' <span class="badge badge-mastered">已掌握</span>':' <span class="badge badge-learning">待确认</span>'}</div>`;
+    html+='</div>';
+  }
+  el.innerHTML = html;
+}
+
+// ==================== RENDER: FORMULAS ====================
+
+function renderFormulas() {
+  const el = document.getElementById('tab-formulas');
+  let html = '';
+  for (const cat of ['OLL','PLL','F2L']) {
+    const formulas = FORMULAS.filter(f=>f.cat===cat);
+    const masteredInCat = formulas.filter(f=>isMastered(f.id)).length;
+    html += `<div class="card"><h3>📖 ${cat} <span style="font-size:.75rem;color:var(--text2);">${masteredInCat}/${formulas.length} 掌握</span></h3>`;
+    for (const f of formulas) {
+      html += `<div class="formula-card"><div class="formula-info"><div class="f-name">${f.name}</div><div class="f-not">${f.not}</div></div><div class="f-status" style="text-align:right;">${statusBadge(isMastered(f.id)?'mastered':f.status)}${!isMastered(f.id)?`<br><button class="btn btn-success btn-sm" style="margin-top:4px;" onclick="markMastered('${f.id}')">我会了</button>`:''}</div></div>`;
+    }
+    html += '</div>';
+  }
+  const allMastered = FORMULAS.filter(f=>isMastered(f.id));
+  html += `<div class="card" style="background:var(--success-light);"><h3>🏆 掌握库（${allMastered.length}个公式）</h3>${allMastered.length===0?'<p style="color:var(--text2);font-size:.85rem;">还没有掌握的公式，开始学习吧！</p>':allMastered.map(f=>`<span style="display:inline-block;background:#fff;padding:4px 12px;border-radius:12px;margin:4px;font-size:.85rem;">✅ ${f.name}</span>`).join('')}</div>`;
+  el.innerHTML = html;
+}
+
+// ==================== RENDER: TIMER ====================
+
+let timerMode = 'countdown', countdownTotal = 5 * 60, countdownRemaining = 5 * 60, countdownRunning = false, countdownInterval = null;
+let stopwatchRunning = false, stopwatchStart = 0, stopwatchElapsed = 0, stopwatchInterval = null;
+
+function renderTimer() {
+  const el = document.getElementById('tab-timer');
+  let html = `<div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;">
+    <button class="btn ${timerMode==='countdown'?'btn-primary':'btn-outline'} btn-sm" onclick="switchTimerMode('countdown')">⏲ 倒计时</button>
+    <button class="btn ${timerMode==='stopwatch'?'btn-primary':'btn-outline'} btn-sm" onclick="switchTimerMode('stopwatch')">⏱ 秒表</button></div>`;
+
+  if (timerMode === 'countdown') {
+    const cls = countdownRemaining<=10?'danger':countdownRemaining<=30?'warning':'';
+    html += `<div class="timer-display"><div class="time ${cls}" id="countdownDisplay">${formatTimeShort(countdownRemaining)}</div></div>
+      <div class="timer-presets">${[5,10,15].map(m=>`<button class="${countdownTotal===m*60&&!countdownRunning?'active':''}" onclick="setCountdown(${m})" ${countdownRunning?'disabled':''}>${m} 分钟</button>`).join('')}</div>
+      <div class="timer-controls">
+        <button class="btn btn-outline" onclick="resetCountdown()" style="border-radius:50%;">🔄</button>
+        <button class="btn ${countdownRunning?'btn-outline':'btn-primary'}" onclick="toggleCountdown()" style="width:70px;height:70px;border-radius:50%;font-size:1.6rem;">${countdownRunning?'⏸':'▶'}</button></div>`;
+  } else {
+    const now = stopwatchRunning ? (stopwatchElapsed + (Date.now() - stopwatchStart) / 1000) : stopwatchElapsed;
+    html += `<div class="stopwatch-display"><div class="sw-time" id="stopwatchDisplay">${formatTime(now)}</div></div>
+      <div class="timer-controls">
+        <button class="btn btn-outline" onclick="resetStopwatch()" style="border-radius:50%;">🔄</button>
+        <button class="btn ${stopwatchRunning?'btn-outline':'btn-primary'}" onclick="toggleStopwatch()" style="width:70px;height:70px;border-radius:50%;font-size:1.6rem;">${stopwatchRunning?'⏸':'▶'}</button>
+        <button class="btn btn-success" onclick="recordSolveTime()" style="border-radius:50%;" ${stopwatchRunning||stopwatchElapsed===0?'disabled':''}>📝</button></div>
+      ${renderTimeHistory()}`;
+  }
+  el.innerHTML = html;
+}
+
+function renderTimeHistory() {
+  const times = state.solveTimes;
+  if (times.length === 0) return '<p style="text-align:center;color:var(--text2);margin-top:16px;">还没有记录成绩</p>';
+  const sorted = [...times].sort((a,b)=>a.time-b.time);
+  const best = sorted[0].time;
+  const last5 = times.slice(-5), last12 = times.slice(-12);
+  const avg5 = last5.length>0?last5.reduce((s,t)=>s+t.time,0)/last5.length:0;
+  const avg12 = last12.length>0?last12.reduce((s,t)=>s+t.time,0)/last12.length:0;
+  return `<div class="time-stats">
+    <div class="time-stat"><div class="ts-val">${formatTime(best)}</div><div class="ts-lbl">最佳成绩</div></div>
+    <div class="time-stat"><div class="ts-val">${formatTime(avg5)}</div><div class="ts-lbl">最近5次平均</div></div>
+    <div class="time-stat"><div class="ts-val">${formatTime(avg12)}</div><div class="ts-lbl">最近12次平均</div></div></div>
+    <div class="time-list" style="margin-top:16px;"><h4 style="margin-bottom:8px;">📋 成绩记录 (${times.length}次)</h4>
+    ${times.slice().reverse().slice(0,20).map((t,i)=>`<div class="tl-item"><span>#${times.length-i}</span><span>${t.date}</span><span class="${t.time===best?'tl-best':''}">${formatTime(t.time)}</span><span style="cursor:pointer;color:var(--danger);" onclick="deleteSolveTime(${times.length-1-i})">✕</span></div>`).join('')}</div>`;
+}
+
+// ==================== TIMER LOGIC ====================
+
+function switchTimerMode(mode) { timerMode=mode; if(mode==='stopwatch')stopCountdown(); if(mode==='countdown')stopStopwatch(); renderTimer(); }
+function setCountdown(m) { countdownTotal=m*60; countdownRemaining=m*60; stopCountdown(); renderTimer(); }
+function toggleCountdown() { countdownRunning?stopCountdown():startCountdown(); renderTimer(); }
+function startCountdown() {
+  if(countdownRemaining<=0)countdownRemaining=countdownTotal;
+  countdownRunning=true;
+  countdownInterval=setInterval(()=>{
+    countdownRemaining--;
+    const el=document.getElementById('countdownDisplay'); if(!el)return;
+    el.textContent=formatTimeShort(countdownRemaining);
+    el.className='time'+(countdownRemaining<=10?' danger':countdownRemaining<=30?' warning':'');
+    if(countdownRemaining<=0){stopCountdown();beep();showToast('⏰ 时间到！');renderTimer();}
+  },1000);
+}
+function stopCountdown() { countdownRunning=false; if(countdownInterval){clearInterval(countdownInterval);countdownInterval=null;} }
+function resetCountdown() { stopCountdown(); countdownRemaining=countdownTotal; renderTimer(); }
+function toggleStopwatch() { stopwatchRunning?pauseStopwatch():startStopwatch(); renderTimer(); }
+function startStopwatch() {
+  stopwatchRunning=true; stopwatchStart=Date.now();
+  stopwatchInterval=setInterval(()=>{
+    const el=document.getElementById('stopwatchDisplay'); if(!el)return;
+    el.textContent=formatTime(stopwatchElapsed+(Date.now()-stopwatchStart)/1000);
+  },30);
+}
+function pauseStopwatch() { stopwatchRunning=false; stopwatchElapsed+=(Date.now()-stopwatchStart)/1000; if(stopwatchInterval){clearInterval(stopwatchInterval);stopwatchInterval=null;} }
+function resetStopwatch() { pauseStopwatch(); stopwatchElapsed=0; renderTimer(); }
+async function recordSolveTime() {
+  const time=Math.round(stopwatchElapsed*100)/100; if(time===0)return;
+  state.solveTimes.push({date:getToday(),time}); await saveState();
+  stopwatchElapsed=0; renderTimer(); showToast(`✅ 记录成绩：${formatTime(time)}`);
+}
+async function deleteSolveTime(index) { state.solveTimes.splice(index,1); await saveState(); renderTimer(); }
+function beep() { try{const c=new(window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=0.3;o.start();o.stop(c.currentTime+0.4);}catch(e){}}
+
+// ==================== ACTIONS ====================
+
+async function setStartDate(dateStr) {
+  const date = dateStr || document.getElementById('startDateInput')?.value;
+  if (!date) return;
+  state.startDate = date;
+  await saveState();
+  renderAll();
+  showToast('✅ 开始日期已设置');
+}
+
+async function markMastered(formulaId) {
+  state.mastered[formulaId] = true;
+  await saveState();
+  renderAll();
+  showToast('✅ 已掌握！放入掌握库');
+}
+
+async function completeDay(dayNum) {
+  state.completedDays[dayNum] = true;
+  await saveState();
+  renderAll();
+  showToast('✅ 训练完成！太棒了！');
+}
+
+async function undoCompleteDay(dayNum) {
+  delete state.completedDays[dayNum];
+  await saveState();
+  renderAll();
+}
+
+async function resetTraining() {
+  if (confirm('确定要重新开始训练吗？这会清除所有进度和成绩记录。')) {
+    state = defaultState();
+    await saveState();
+    planWeek = 1; timerMode = 'countdown'; countdownTotal = 5 * 60; countdownRemaining = 5 * 60;
+    stopCountdown(); stopStopwatch(); stopwatchElapsed = 0;
+    renderAll();
+  }
+}
+
+// ==================== NAVIGATION ====================
+
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+tabName).classList.add('active');
+  document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.bottom-nav button[data-tab="${tabName}"]`).classList.add('active');
+  if (tabName==='plan') renderPlan();
+  if (tabName==='formulas') renderFormulas();
+  if (tabName==='timer') renderTimer();
+}
+
+function updateHeaderSub(dayIndex) {
+  const sub = document.getElementById('headerSub');
+  if (dayIndex < 0) sub.textContent = 'CFOP 30天提速计划';
+  else if (dayIndex >= 28) sub.textContent = '🎉 训练完成！';
+  else { const td = TRAINING_DAYS[dayIndex]; sub.textContent = `第${td.week}周 · 第${td.day}天 · ${td.dur}`; }
+}
+
+function renderAll() {
+  renderToday();
+  if (document.getElementById('tab-plan').classList.contains('active')) renderPlan();
+  if (document.getElementById('tab-formulas').classList.contains('active')) renderFormulas();
+  if (document.getElementById('tab-timer').classList.contains('active')) renderTimer();
+}
+
+// ==================== INIT ====================
+
+document.querySelectorAll('.bottom-nav button').forEach(btn=>{btn.addEventListener('click',()=>switchTab(btn.dataset.tab));});
+
+document.addEventListener('visibilitychange', ()=>{
+  if (document.hidden) {
+    if (stopwatchRunning) pauseStopwatch();
+    if (countdownRunning) stopCountdown();
+    renderTimer();
+  }
+});
+
+async function init() {
+  const authed = await checkAuth();
+  if (authed) {
+    await loadState();
+    hideAuth();
+    renderAll();
+  } else {
+    showLogin();
+  }
+}
+
+init();
+</script>
+</body>
+</html>
