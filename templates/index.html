@@ -845,7 +845,8 @@ async function resetTraining() {
     await saveState();
     planWeek = 1; timerMode = 'countdown'; countdownTotal = 5 * 60; countdownRemaining = 5 * 60;
     stopCountdown(); stopStopwatch(); stopwatchElapsed = 0;
-    renderAll();
+    switchTab('today');
+    updateHeaderSub(-1);
     showToast('已重置，掌握公式保留');
   }
 }
@@ -857,6 +858,7 @@ function switchTab(tabName) {
   document.getElementById('tab-'+tabName).classList.add('active');
   document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.remove('active'));
   document.querySelector(`.bottom-nav button[data-tab="${tabName}"]`).classList.add('active');
+  if (tabName==='today') renderToday();
   if (tabName==='plan') renderPlan();
   if (tabName==='formulas') renderFormulas();
   if (tabName==='timer') renderTimer();
